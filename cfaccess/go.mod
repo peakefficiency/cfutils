@@ -1,4 +1,4 @@
-module github.com/peakefficency/cfutils/cfaccess
+module github.com/peakefficiency/cfutils/cfaccess
 
 go 1.22.1
 

@@ -3,11 +3,11 @@ package main
 import (
 	"fmt"
 
-	"github.com/peakefficency/cf-zt-utils/cfaccess"
+	"github.com/peakefficiency/cfutils/cfaccess"
 )
 
 func main() {
-	const appURL = "example.com"
+	const appURL = "https://access-tester.pages.dev"
 
 	response, err := cfaccess.GetWithAccess(appURL)
 	if err != nil {

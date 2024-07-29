@@ -1,17 +1,15 @@
 module github.com/peakefficiency/cfutils/cfaccess
 
-go 1.22.1
+go 1.22.5
 
-require (
-	github.com/cloudflare/cloudflared v0.0.0-20240319180831-bb29a0e19437
-	github.com/pkg/errors v0.9.1
-)
+require github.com/cloudflare/cloudflared v0.0.0-20240716152452-db239e731924
 
 require (
 	github.com/apparentlymart/go-cidr v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/coredns/caddy v1.1.1 // indirect
+
 	github.com/coredns/coredns v1.11.2 // indirect
 	github.com/coreos/go-oidc/v3 v3.6.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
@@ -57,4 +55,5 @@ require (
 	google.golang.org/grpc v1.61.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	nhooyr.io/websocket v1.8.7 // indirect
 )

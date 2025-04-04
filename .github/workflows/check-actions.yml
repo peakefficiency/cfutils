@@ -1,0 +1,102 @@
+name: Check GitHub Actions Versions
+
+on:
+  workflow_dispatch:  # Allow manual triggering
+  schedule:
+    - cron: '0 0 * * 1'  # Run weekly on Mondays
+
+jobs:
+  check-actions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: |
+          # Install actionlint
+          curl -sL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash
+          
+          # Install yq
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          
+          # Install GitHub CLI
+          type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+          && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+          && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+          && sudo apt update \
+          && sudo apt install gh -y
+          
+      - name: Check Actions and Create PR
+        run: |
+          set -e  # Exit on any error
+          
+          # Get all workflow files
+          FILES=$(find .github/workflows -name "*.yml" -o -name "*.yaml")
+          
+          # Initialize a flag to track if updates are needed
+          UPDATES_NEEDED=false
+          OUTDATED_ACTIONS=""
+          
+          # Check each workflow file
+          for file in $FILES; do
+            echo "Checking $file for outdated actions..."
+            if output=$(actionlint "$file" 2>&1); then
+              if echo "$output" | grep -q "newer version exists"; then
+                UPDATES_NEEDED=true
+                OUTDATED_ACTIONS="$OUTDATED_ACTIONS\n$(echo "$output" | grep "newer version exists")"
+              fi
+            else
+              echo "Warning: actionlint failed for $file"
+              echo "$output"
+            fi
+          done
+          
+          if [ "$UPDATES_NEEDED" = true ]; then
+            echo "Found outdated actions:"
+            echo -e "$OUTDATED_ACTIONS"
+            
+            # Create a new branch
+            git checkout -b automated/update-actions
+            
+            # Update Dependabot to run more frequently for actions
+            if ! yq -i '.updates[0].schedule.interval = "daily"' .github/dependabot.yml; then
+              echo "Failed to update dependabot.yml"
+              exit 1
+            fi
+            
+            # Commit and push changes
+            git config --global user.name 'github-actions[bot]'
+            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+            git add .github/dependabot.yml
+            git commit -m "ci: update GitHub Actions check frequency to daily"
+            
+            if ! git push origin automated/update-actions; then
+              echo "Failed to push changes"
+              exit 1
+            fi
+            
+            # Create PR using gh CLI with escaped newlines in the body
+            if ! gh pr create \
+              --title "ci: increase GitHub Actions update frequency" \
+              --body "$(printf "This PR updates the Dependabot configuration to check for GitHub Actions updates daily instead of weekly to ensure we stay current with the latest versions.\n\nOutdated actions found:\n\`\`\`\n%s\n\`\`\`" "$OUTDATED_ACTIONS")" \
+              --label "dependencies,github_actions" \
+              --base main; then
+              echo "Failed to create PR"
+              exit 1
+            fi
+          else
+            echo "No outdated actions found!"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
